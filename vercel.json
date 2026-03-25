@@ -1,5 +1,4 @@
 {
-  "version": 2,
   "headers": [
     {
       "source": "/api/(.*)",
@@ -10,15 +9,5 @@
         { "key": "Access-Control-Allow-Headers", "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization" }
       ]
     }
-  ],
-  "routes": [
-    { "src": "/api/login", "dest": "/api/login.js" },
-    { "src": "/api/register", "dest": "/api/register.js" },
-    { "src": "/api/leads", "dest": "/api/leads.js" },
-    { "src": "/api/messages", "dest": "/api/messages.js" }
-  ],
-  "env": {
-    "NODE_ENV": "production",
-    "JWT_SECRET": "isis-crm-prod-secret-2026-mude-isto-agora"
-  }
+  ]
 }
