@@ -1,4 +1,4 @@
-// api/leads.js — Gerenciamento completo de leads (adaptado para schema real)
+// api/leads.js — Gerenciamento completo de leads (VERSÃO CORRIGIDA)
 import { getPool, setCors, handleOptions, parseAuthHeader } from './lib/helpers.js';
 import jwt from 'jsonwebtoken';
 
@@ -102,13 +102,13 @@ export default async function handler(req, res) {
       });
     }
 
-    // PATCH - Atualizar lead
+    // PATCH - Atualizar lead (CORRIGIDO PARA ACEITAR ID)
     if (req.method === 'PATCH') {
-      const { phone, whatsapp, ...fields } = req.body || {};
+      const { id, phone, whatsapp, ...fields } = req.body || {};
       
-      const phoneNumber = phone || whatsapp;
-      if (!phoneNumber) {
-        return res.status(400).json({ error: 'phone ou whatsapp é obrigatório' });
+      // Verifica se temos um ID ou um Telefone para localizar o lead
+      if (!id && !phone && !whatsapp) {
+        return res.status(400).json({ error: 'ID ou Telefone é obrigatório para atualização' });
       }
 
       const updates = [];
@@ -131,18 +131,28 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Nenhum campo válido para atualizar' });
       }
 
-      values.push(companyId, phoneNumber);
+      // Adiciona o CompanyID
+      values.push(companyId);
+      const companyIdParam = paramCount++;
+
+      // Adiciona o identificador (ID ou Phone)
+      const identifier = id || phone || whatsapp;
+      values.push(identifier);
+      const identifierParam = paramCount;
+
+      // Define se vamos buscar por ID (número) ou por Phone (string)
+      const columnToMatch = id ? 'id' : 'phone';
 
       const result = await pool.query(
         `UPDATE leads 
          SET ${updates.join(', ')}, updated_at = NOW()
-         WHERE company_id = $${paramCount++} AND phone = $${paramCount}
+         WHERE company_id = $${companyIdParam} AND ${columnToMatch} = $${identifierParam}
          RETURNING *`,
         values
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'Lead não encontrado' });
+        return res.status(404).json({ error: 'Lead não encontrado nesta empresa' });
       }
 
       return res.status(200).json({
@@ -151,20 +161,22 @@ export default async function handler(req, res) {
       });
     }
 
-    // DELETE - Remover lead
+    // DELETE - Remover lead (CORRIGIDO PARA ACEITAR ID)
     if (req.method === 'DELETE') {
-      const { phone, whatsapp } = req.body || {};
-      const phoneNumber = phone || whatsapp;
+      const { id, phone, whatsapp } = req.body || {};
+      const identifier = id || phone || whatsapp;
       
-      if (!phoneNumber) {
-        return res.status(400).json({ error: 'phone ou whatsapp é obrigatório' });
+      if (!identifier) {
+        return res.status(400).json({ error: 'ID ou Telefone é obrigatório' });
       }
+
+      const columnToMatch = id ? 'id' : 'phone';
 
       const result = await pool.query(
         `DELETE FROM leads 
-         WHERE company_id = $1 AND phone = $2
+         WHERE company_id = $1 AND ${columnToMatch} = $2
          RETURNING *`,
-        [companyId, phoneNumber]
+        [companyId, identifier]
       );
 
       if (result.rows.length === 0) {
