@@ -1,4 +1,4 @@
-// api/leads.js — Gerenciamento completo de leads com nome
+// api/leads.js — Gerenciamento completo de leads (adaptado para schema real)
 import { getPool, setCors, handleOptions, parseAuthHeader } from './lib/helpers.js';
 import jwt from 'jsonwebtoken';
 
@@ -26,10 +26,12 @@ export default async function handler(req, res) {
     // GET - Listar leads
     if (req.method === 'GET') {
       const result = await pool.query(
-        `SELECT id, company_id, user_id, name, status, interesse, canal, criado_em, atualizado_em
+        `SELECT id, company_id, name, phone, whatsapp, email, status, interesse, 
+                source, priority, company_name, job_title, industry, city, state,
+                created_at, updated_at
          FROM leads 
          WHERE company_id = $1 
-         ORDER BY criado_em DESC`,
+         ORDER BY created_at DESC`,
         [companyId]
       );
       return res.status(200).json({ 
@@ -41,30 +43,57 @@ export default async function handler(req, res) {
 
     // POST - Criar ou atualizar lead
     if (req.method === 'POST') {
-      const { user_id, name, status, interesse, canal } = req.body || {};
+      const { phone, whatsapp, name, email, status, interesse, source, 
+              company_name, job_title, industry, city, state, priority } = req.body || {};
 
-      if (!user_id) {
+      const phoneNumber = phone || whatsapp;
+      
+      if (!phoneNumber) {
         return res.status(400).json({ 
           success: false,
-          error: 'user_id (telefone/email) é obrigatório' 
+          error: 'phone ou whatsapp é obrigatório' 
         });
       }
 
-      // Se não informar nome, usa parte do user_id
-      const leadName = name || `Lead ${user_id.slice(-4)}`;
+      const leadName = name || `Lead ${phoneNumber.slice(-4)}`;
 
       const result = await pool.query(
-        `INSERT INTO leads (company_id, user_id, name, status, interesse, canal)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         ON CONFLICT (company_id, user_id) 
+        `INSERT INTO leads (company_id, phone, whatsapp, name, email, status, 
+                          interesse, source, company_name, job_title, industry, 
+                          city, state, priority)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+         ON CONFLICT (company_id, phone) 
          DO UPDATE SET 
            name = EXCLUDED.name,
+           whatsapp = EXCLUDED.whatsapp,
+           email = EXCLUDED.email,
            status = EXCLUDED.status, 
            interesse = EXCLUDED.interesse,
-           canal = EXCLUDED.canal,
-           atualizado_em = NOW()
+           source = EXCLUDED.source,
+           company_name = EXCLUDED.company_name,
+           job_title = EXCLUDED.job_title,
+           industry = EXCLUDED.industry,
+           city = EXCLUDED.city,
+           state = EXCLUDED.state,
+           priority = EXCLUDED.priority,
+           updated_at = NOW()
          RETURNING *`,
-        [companyId, user_id, leadName, status || 'novo', interesse || null, canal || 'whatsapp']
+        [
+          companyId, 
+          phoneNumber, 
+          whatsapp || phoneNumber, 
+          leadName, 
+          email || null,
+          status || 'novo', 
+          interesse || null, 
+          source || 'whatsapp',
+          company_name || null,
+          job_title || null,
+          industry || null,
+          city || null,
+          state || null,
+          priority || 'medium'
+        ]
       );
 
       return res.status(201).json({
@@ -73,43 +102,41 @@ export default async function handler(req, res) {
       });
     }
 
-    // PATCH - Atualizar status/nome especificamente
+    // PATCH - Atualizar lead
     if (req.method === 'PATCH') {
-      const { user_id, name, status, interesse } = req.body || {};
+      const { phone, whatsapp, ...fields } = req.body || {};
       
-      if (!user_id) {
-        return res.status(400).json({ error: 'user_id é obrigatório' });
+      const phoneNumber = phone || whatsapp;
+      if (!phoneNumber) {
+        return res.status(400).json({ error: 'phone ou whatsapp é obrigatório' });
       }
 
       const updates = [];
       const values = [];
       let paramCount = 1;
 
-      if (name !== undefined) {
-        updates.push(`name = $${paramCount++}`);
-        values.push(name);
-      }
-      
-      if (status !== undefined) {
-        updates.push(`status = $${paramCount++}`);
-        values.push(status);
-      }
+      const allowedFields = [
+        'name', 'email', 'status', 'interesse', 'source', 'priority',
+        'company_name', 'job_title', 'industry', 'city', 'state', 'whatsapp'
+      ];
 
-      if (interesse !== undefined) {
-        updates.push(`interesse = $${paramCount++}`);
-        values.push(interesse);
+      for (const [key, value] of Object.entries(fields)) {
+        if (allowedFields.includes(key) && value !== undefined) {
+          updates.push(`${key} = $${paramCount++}`);
+          values.push(value);
+        }
       }
 
       if (updates.length === 0) {
-        return res.status(400).json({ error: 'Nenhum campo para atualizar' });
+        return res.status(400).json({ error: 'Nenhum campo válido para atualizar' });
       }
 
-      values.push(companyId, user_id);
+      values.push(companyId, phoneNumber);
 
       const result = await pool.query(
         `UPDATE leads 
-         SET ${updates.join(', ')}, atualizado_em = NOW()
-         WHERE company_id = $${paramCount++} AND user_id = $${paramCount}
+         SET ${updates.join(', ')}, updated_at = NOW()
+         WHERE company_id = $${paramCount++} AND phone = $${paramCount}
          RETURNING *`,
         values
       );
@@ -124,10 +151,36 @@ export default async function handler(req, res) {
       });
     }
 
+    // DELETE - Remover lead
+    if (req.method === 'DELETE') {
+      const { phone, whatsapp } = req.body || {};
+      const phoneNumber = phone || whatsapp;
+      
+      if (!phoneNumber) {
+        return res.status(400).json({ error: 'phone ou whatsapp é obrigatório' });
+      }
+
+      const result = await pool.query(
+        `DELETE FROM leads 
+         WHERE company_id = $1 AND phone = $2
+         RETURNING *`,
+        [companyId, phoneNumber]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Lead não encontrado' });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Lead removido com sucesso'
+      });
+    }
+
     return res.status(405).json({ error: 'Método não permitido' });
 
   } catch (err) {
     console.error('[leads] Erro:', err.message);
-    return res.status(500).json({ error: 'Erro interno do servidor' });
+    return res.status(500).json({ error: 'Erro interno do servidor', details: err.message });
   }
 }
