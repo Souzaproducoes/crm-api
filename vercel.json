@@ -22,7 +22,7 @@
   ],
   "env": {
     "NODE_ENV": "production",
-    "JWT_SECRET": "isis-crm-prod-secret-2026-mude-isto",
+    "JWT_SECRET": "isis-crm-prod-secret-2026-mude-isto-agora",
     "ALLOWED_ORIGINS": "*"
   }
 }
