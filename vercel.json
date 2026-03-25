@@ -1,28 +1,24 @@
 {
   "version": 2,
-  "builds": [
+  "headers": [
     {
-      "src": "api/*.js",
-      "use": "@vercel/node"
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Credentials", "value": "true" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT" },
+        { "key": "Access-Control-Allow-Headers", "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization" }
+      ]
     }
   ],
   "routes": [
-    {
-      "src": "/api/login",
-      "dest": "/api/login.js"
-    },
-    {
-      "src": "/api/leads",
-      "dest": "/api/leads.js"
-    },
-    {
-      "src": "/api/messages",
-      "dest": "/api/messages.js"
-    }
+    { "src": "/api/login", "dest": "/api/login.js" },
+    { "src": "/api/register", "dest": "/api/register.js" },
+    { "src": "/api/leads", "dest": "/api/leads.js" },
+    { "src": "/api/messages", "dest": "/api/messages.js" }
   ],
   "env": {
     "NODE_ENV": "production",
-    "JWT_SECRET": "isis-crm-prod-secret-2026-mude-isto-agora",
-    "ALLOWED_ORIGINS": "*"
+    "JWT_SECRET": "isis-crm-prod-secret-2026-mude-isto-agora"
   }
 }
