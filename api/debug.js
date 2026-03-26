@@ -7,20 +7,19 @@ export default async function handler(req, res) {
     try {
         const pool = getPool();
         
-        // Busca tudo das 3 tabelas principais
-        const companies = await pool.query('SELECT id, name, email, plan, active FROM companies');
-        const leads = await pool.query('SELECT * FROM leads');
-        const messages = await pool.query('SELECT * FROM messages LIMIT 50');
+        const companies = await pool.query('SELECT * FROM companies ORDER BY id ASC');
+        const leads = await pool.query('SELECT * FROM leads ORDER BY created_at DESC');
+        const messages = await pool.query('SELECT * FROM messages ORDER BY created_at DESC LIMIT 100');
 
         return res.status(200).json({
-            status: "Conectado ao Banco",
+            status: "Conectado",
             total_empresas: companies.rowCount,
             empresas: companies.rows,
             total_leads: leads.rowCount,
             leads: leads.rows,
+            total_mensagens: messages.rowCount,
             mensagens_recentes: messages.rows
         });
-
     } catch (err) {
         return res.status(500).json({ error: err.message });
     }
