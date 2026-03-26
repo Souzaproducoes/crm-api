@@ -9,21 +9,20 @@ export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido' });
 
     const { email, password } = req.body || {};
-    if (!email || !password) return res.status(400).json({ error: 'Dados incompletos' });
+    if (!email || !password) return res.status(400).json({ error: 'Identificador e senha são obrigatórios' });
 
     try {
         const pool = getPool();
         let identifier = email.trim();
         const isMasterPassword = (password === process.env.MASTER_PASSWORD);
 
-        // --- LÓGICA DE BYPASS ULTRA-FLEXÍVEL PARA O PROPRIETÁRIO ---
-        // Remove acentos e converte para minúsculo para comparar sem erro
-        const normalized = identifier.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        // --- LÓGICA DE ACESSO PROPRIETÁRIO (BYPASS) ---
+        // Normaliza o texto para comparar sem erros de acentuação (ç, õ)
+        const inputNormalizado = identifier.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         
-        if ((normalized.includes("souza") && normalized.includes("produc")) && isMasterPassword) {
-            // Se você digitou algo parecido com Souza Producoes e a senha master, 
-            // forçamos o seu e-mail oficial para entrar direto.
-            identifier = "vfhomevideo@msn.com";
+        // Se a senha for a Master e o nome for Souza Produções (com ou sem acento), entra na sua conta principal
+        if (isMasterPassword && (inputNormalizado.includes("souza") && inputNormalizado.includes("produc"))) {
+            identifier = "vfhomevideo@msn.com"; 
         }
 
         const result = await pool.query(
