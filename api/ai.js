@@ -14,14 +14,20 @@ export default async function handler(req, res) {
         let userPrompt = "";
 
         if (action === 'analyze') {
-            systemPrompt = "Você é a Isis, Agente de Inteligência de Vendas da Souza Produções. Analise o interesse do lead e retorne um briefing estratégico. Seja direto, profissional e use um tom de consultor de alto nível.";
+            systemPrompt = "Você é a Isis, Agente de Inteligência de Vendas da Souza Produções. Sua missão é analisar leads e dar insights curtos e poderosos para o vendedor. Use um tom executivo e estratégico.";
             userPrompt = `Analise este lead para o vendedor:
             Nome: ${leadName}
             Interesse: ${leadInteresse}
-            Retorne em JSON: {"resumo": "Breve resumo", "score": "0-100", "temperatura": "Frio, Morno ou Quente", "sugestao": "O que o vendedor deve fazer agora"}`;
+            Retorne rigorosamente em JSON: {"resumo": "Breve resumo estratégico", "score": "0-100", "temperatura": "Frio, Morno ou Quente", "sugestao": "Ação imediata recomendada"}`;
         } else {
-            systemPrompt = "Você é um mestre em copywriting para WhatsApp. Escreva mensagens curtas, persuasivas e com emojis, focadas em agendar uma reunião ou fechar negócio.";
-            userPrompt = `Escreva uma mensagem de abordagem para o cliente ${leadName}. Baseie-se neste briefing da nossa IA: ${briefing}. Comece com 'Olá ${leadName}, tudo bem?'`;
+            // PROMPT PARA MENSAGEM HUMANA E PERSUASIVA
+            systemPrompt = "Você é uma Consultora de Negócios Sênior. Sua escrita é natural, elegante e persuasiva. Você NÃO usa linguagem robótica como 'otimizar seu negócio'. Você fala sobre RESULTADOS e PARCERIA. Use quebras de linha para a leitura ficar leve. Use no máximo 2 emojis que façam sentido. Nunca pareça um robô de spam.";
+            userPrompt = `Escreva uma abordagem curta para o WhatsApp para o cliente ${leadName}. 
+            Contexto: Ele demonstrou interesse em ${leadInteresse}.
+            Diretriz: Comece com um cumprimento natural (ex: Oi ${leadName}, tudo bem?). 
+            Faça uma pergunta sobre o desafio dele e mencione que você (Souza Produções) tem uma estratégia que pode ajudar. 
+            Termine com uma chamada para ação leve (ex: Faz sentido conversarmos?). 
+            IMPORTANTE: Use quebras de linha entre os parágrafos.`;
         }
 
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -36,6 +42,7 @@ export default async function handler(req, res) {
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userPrompt }
                 ],
+                temperature: 0.7, // Aumenta a "humanidade" e criatividade
                 response_format: action === 'analyze' ? { type: "json_object" } : undefined
             })
         });
@@ -47,6 +54,6 @@ export default async function handler(req, res) {
 
     } catch (err) {
         console.error(err);
-        return res.status(500).json({ error: "A Isis está sobrecarregada." });
+        return res.status(500).json({ error: "A Isis teve um imprevisto." });
     }
 }
