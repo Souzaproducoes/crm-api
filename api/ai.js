@@ -14,11 +14,14 @@ export default async function handler(req, res) {
         let userPrompt = "";
 
         if (action === 'analyze') {
-            systemPrompt = "Você é a Isis, Agente de IA da Souza Produções. Analise o lead e retorne JSON.";
-            userPrompt = `Analise: Nome: ${leadName}, Interesse: ${leadInteresse}. Retorne: {"resumo": "...", "score": "0-100", "temperatura": "...", "sugestao": "..."}`;
-        } else if (action === 'message') {
-            systemPrompt = "Você é um mestre em copywriting de vendas.";
-            userPrompt = `Escreva uma mensagem curta de WhatsApp para ${leadName} baseada nisso: ${briefing}`;
+            systemPrompt = "Você é a Isis, Agente de Inteligência de Vendas da Souza Produções. Analise o interesse do lead e retorne um briefing estratégico. Seja direto, profissional e use um tom de consultor de alto nível.";
+            userPrompt = `Analise este lead para o vendedor:
+            Nome: ${leadName}
+            Interesse: ${leadInteresse}
+            Retorne em JSON: {"resumo": "Breve resumo", "score": "0-100", "temperatura": "Frio, Morno ou Quente", "sugestao": "O que o vendedor deve fazer agora"}`;
+        } else {
+            systemPrompt = "Você é um mestre em copywriting para WhatsApp. Escreva mensagens curtas, persuasivas e com emojis, focadas em agendar uma reunião ou fechar negócio.";
+            userPrompt = `Escreva uma mensagem de abordagem para o cliente ${leadName}. Baseie-se neste briefing da nossa IA: ${briefing}. Comece com 'Olá ${leadName}, tudo bem?'`;
         }
 
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -43,6 +46,7 @@ export default async function handler(req, res) {
         return res.status(200).json(action === 'analyze' ? JSON.parse(content) : { message: content });
 
     } catch (err) {
-        return res.status(500).json({ error: "Erro na IA" });
+        console.error(err);
+        return res.status(500).json({ error: "A Isis está sobrecarregada." });
     }
 }
