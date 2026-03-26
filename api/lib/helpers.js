@@ -1,40 +1,37 @@
-import bcrypt from 'bcryptjs';
-import { getPool, setCors, handleOptions } from './lib/helpers.js';
+import pg from 'pg';
+const { Pool } = pg;
+import jwt from 'jsonwebtoken';
 
-export default async function handler(req, res) {
-    setCors(req, res);
-    if (handleOptions(req, res)) return;
+let pool;
 
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Método não permitido' });
+export function getPool() {
+    if (!pool) {
+        pool = new Pool({
+            connectionString: process.env.DATABASE_URL,
+            ssl: { rejectUnauthorized: false }
+        });
     }
+    return pool;
+}
 
-    const { companyName, email, password, phone, industry } = req.body || {};
+export function setCors(req, res) {
+    const origin = req.headers.origin || '*';
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+}
 
-    if (!companyName || !email || !password) {
-        return res.status(400).json({ success: false, error: 'Campos obrigatórios faltando' });
+export function handleOptions(req, res) {
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return true;
     }
+    return false;
+}
 
-    try {
-        const pool = getPool();
-        const emailExists = await pool.query('SELECT id FROM companies WHERE email = $1', [email.toLowerCase().trim()]);
-
-        if (emailExists.rows.length > 0) {
-            return res.status(409).json({ success: false, error: 'Email já cadastrado' });
-        }
-
-        const passwordHash = await bcrypt.hash(password, 10);
-        const slug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-
-        const result = await pool.query(
-            `INSERT INTO companies (name, slug, email, phone, password, plan, industry, active)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, name, email`,
-            [companyName, slug, email.toLowerCase().trim(), phone || null, passwordHash, 'free', industry || 'Outro', true]
-        );
-
-        return res.status(201).json({ success: true, company: result.rows[0] });
-    } catch (err) {
-        console.error(err);
-        return res.status(500).json({ success: false, error: err.message });
-    }
+export function parseAuthHeader(authHeader) {
+    if (!authHeader) return null;
+    const parts = authHeader.split(' ');
+    return parts.length === 2 ? parts[1] : null;
 }
