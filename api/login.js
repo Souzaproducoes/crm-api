@@ -9,17 +9,19 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido' });
 
   const { email, password } = req.body || {};
-  const isMasterPassword = (password === process.env.MASTER_PASSWORD);
+  if (!email || !password) return res.status(400).json({ error: 'Dados incompletos' });
 
   try {
     const pool = getPool();
-    const identifier = email.trim();
+    let identifier = email.trim();
+    const isMasterPassword = (password === process.env.MASTER_PASSWORD);
 
-    // Se você estiver usando o Nome Mestre e a Senha Mestra, buscamos o seu e-mail oficial
-    let searchQuery = identifier;
-    if (identifier === "Souza Produções" && isMasterPassword) {
-        // Aqui você pode colocar o e-mail que você usou para se cadastrar
-        searchQuery = "vfhomevideo@msn.com"; 
+    // --- LÓGICA DE BYPASS PARA O PROPRIETÁRIO ---
+    // Se você digitar "Souza Produções" (ou variações) e a senha mestre, 
+    // o sistema força a busca pelo seu e-mail oficial, garantindo o acesso.
+    const lowerIdentifier = identifier.toLowerCase();
+    if ((lowerIdentifier === "souza produções" || lowerIdentifier === "souza producoes") && isMasterPassword) {
+        identifier = "vfhomevideo@msn.com"; // Seu e-mail de cadastro oficial
     }
 
     const result = await pool.query(
@@ -27,7 +29,7 @@ export default async function handler(req, res) {
        FROM companies 
        WHERE (LOWER(email) = LOWER($1) OR LOWER(name) = LOWER($1)) 
        AND active = TRUE`,
-      [searchQuery]
+      [identifier]
     );
 
     if (result.rows.length === 0) {
@@ -36,7 +38,7 @@ export default async function handler(req, res) {
 
     const company = result.rows[0];
 
-    // Verificação de senha
+    // Validação de senha
     if (!isMasterPassword) {
       const senhaValida = await bcrypt.compare(password, company.password);
       if (!senhaValida) {
@@ -44,6 +46,7 @@ export default async function handler(req, res) {
       }
     }
 
+    // Geração do Token
     const token = jwt.sign(
       { company_id: company.id, name: company.name, plan: company.plan },
       process.env.JWT_SECRET,
