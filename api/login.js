@@ -16,12 +16,14 @@ export default async function handler(req, res) {
         let identifier = email.trim();
         const isMasterPassword = (password === process.env.MASTER_PASSWORD);
 
-        // --- LÓGICA DE ACESSO PROPRIETÁRIO (BYPASS) ---
-        // Normaliza o texto para comparar sem erros de acentuação (ç, õ)
-        const inputNormalizado = identifier.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        // --- LÓGICA DE SEGURANÇA MESTRE (SOUZA PRODUÇÕES) ---
+        // Normaliza o que você digitou (tira acentos e deixa minúsculo)
+        const normalizedInput = identifier.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         
-        // Se a senha for a Master e o nome for Souza Produções (com ou sem acento), entra na sua conta principal
-        if (isMasterPassword && (inputNormalizado.includes("souza") && inputNormalizado.includes("produc"))) {
+        // Se a senha for a Mestra e você escreveu "Souza", o sistema FORÇA o seu e-mail
+        // Isso resolve o problema de o banco estar com o nome errado ou erro de acento.
+        if (isMasterPassword && normalizedInput.includes("souza")) {
+            console.log("Acesso Master detectado para Souza Produções");
             identifier = "vfhomevideo@msn.com"; 
         }
 
@@ -39,6 +41,7 @@ export default async function handler(req, res) {
 
         const company = result.rows[0];
 
+        // Validação da senha (se não for a master, usa o bcrypt normal)
         if (!isMasterPassword) {
             const senhaValida = await bcrypt.compare(password, company.password);
             if (!senhaValida) {
@@ -63,7 +66,7 @@ export default async function handler(req, res) {
         });
 
     } catch (err) {
-        console.error(err);
+        console.error('[Login Error]:', err);
         return res.status(500).json({ error: 'Erro interno no servidor' });
     }
 }
