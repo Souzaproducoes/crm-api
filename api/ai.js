@@ -14,20 +14,22 @@ export default async function handler(req, res) {
         let userPrompt = "";
 
         if (action === 'analyze') {
-            systemPrompt = "Você é a Isis, Agente de Inteligência de Vendas da Souza Produções. Sua missão é analisar leads e dar insights curtos e poderosos para o vendedor. Use um tom executivo e estratégico.";
-            userPrompt = `Analise este lead para o vendedor:
+            systemPrompt = "Você é a Isis, Agente de Inteligência de Vendas da Souza Produções. Analise leads sob a ótica de um Diretor Comercial. Foque em potencial de fechamento e dor do cliente.";
+            userPrompt = `Analise este lead para o consultor:
             Nome: ${leadName}
             Interesse: ${leadInteresse}
-            Retorne rigorosamente em JSON: {"resumo": "Breve resumo estratégico", "score": "0-100", "temperatura": "Frio, Morno ou Quente", "sugestao": "Ação imediata recomendada"}`;
+            Retorne em JSON: {"resumo": "Resumo executivo (20 palavras)", "score": "0-100", "temperatura": "Frio, Morno ou Quente", "sugestao": "Estratégia comercial imediata"}`;
         } else {
-            // PROMPT PARA MENSAGEM HUMANA E PERSUASIVA
-            systemPrompt = "Você é uma Consultora de Negócios Sênior. Sua escrita é natural, elegante e persuasiva. Você NÃO usa linguagem robótica como 'otimizar seu negócio'. Você fala sobre RESULTADOS e PARCERIA. Use quebras de linha para a leitura ficar leve. Use no máximo 2 emojis que façam sentido. Nunca pareça um robô de spam.";
-            userPrompt = `Escreva uma abordagem curta para o WhatsApp para o cliente ${leadName}. 
+            // PROMPT DE ALTO TICKET (CEO & MARKETING VISION)
+            systemPrompt = "Você é um Consultor de Negócios de Alta Performance. Sua escrita é minimalista, elegante e extremamente direta. Você NÃO usa emojis. Você foca no custo de oportunidade e na eficiência operacional. Use parágrafos curtos.";
+            userPrompt = `Escreva uma abordagem estratégica para o cliente ${leadName}. 
             Contexto: Ele demonstrou interesse em ${leadInteresse}.
-            Diretriz: Comece com um cumprimento natural (ex: Oi ${leadName}, tudo bem?). 
-            Faça uma pergunta sobre o desafio dele e mencione que você (Souza Produções) tem uma estratégia que pode ajudar. 
-            Termine com uma chamada para ação leve (ex: Faz sentido conversarmos?). 
-            IMPORTANTE: Use quebras de linha entre os parágrafos.`;
+            Diretrizes:
+            - Comece direto: "${leadName}, identifiquei um ponto crítico na sua triagem de leads..."
+            - Demonstre que você sabe o problema dele (perda de leads por falta de automação).
+            - Ofereça uma validação da estratégia da Souza Produções.
+            - Termine perguntando se faz sentido escalar essa operação agora.
+            - ZERO emojis. Tom executivo.`;
         }
 
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -42,7 +44,7 @@ export default async function handler(req, res) {
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userPrompt }
                 ],
-                temperature: 0.7, // Aumenta a "humanidade" e criatividade
+                temperature: 0.5, // Menor temperatura = Resposta mais séria e direta
                 response_format: action === 'analyze' ? { type: "json_object" } : undefined
             })
         });
@@ -54,6 +56,6 @@ export default async function handler(req, res) {
 
     } catch (err) {
         console.error(err);
-        return res.status(500).json({ error: "A Isis teve um imprevisto." });
+        return res.status(500).json({ error: "Erro no processamento da IA." });
     }
 }
