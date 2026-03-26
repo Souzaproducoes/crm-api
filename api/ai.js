@@ -14,25 +14,36 @@ export default async function handler(req, res) {
         let userPrompt = "";
 
         if (action === 'analyze') {
-            systemPrompt = "Você é a Isis, Agente de Inteligência da Souza Produções. Sua missão é dar um resumo rápido e estratégico para o seu chefe (o vendedor) sobre o potencial do lead.";
-            userPrompt = `Analise este lead de forma curta:
+            // BRIEFING ESTRATÉGICO MULTILÍNGUE
+            systemPrompt = `Você é a Isis, Agente de Inteligência de Vendas da Souza Produções. 
+            Sua tarefa é analisar leads. IMPORTANTE: Identifique o idioma do interesse do lead. 
+            Se o lead falar Inglês, Espanhol ou qualquer outro idioma, seu resumo deve ser no idioma do VENDEDOR (Português), mas mencione o idioma original do lead.`;
+            
+            userPrompt = `Analise este lead de forma executiva:
             Nome: ${leadName}
             Interesse: ${leadInteresse}
-            Retorne em JSON: {"resumo": "O que ele quer em 1 frase", "score": "0-100", "temperatura": "Frio, Morno ou Quente", "sugestao": "O que falar para ele"}`;
+            Retorne RIGOROSAMENTE em JSON: 
+            {"resumo": "frase curta", "score": "0-100", "temperatura": "Frio, Morno ou Quente", "sugestao": "próximo passo"}`;
+
         } else {
-            // PROMPT HUMANO, CURTO E COM ALTA CONVERSÃO
-            systemPrompt = "Você é a Isis, a Agente de Inteligência Artificial da Souza Produções. Você escreve de forma humana, leve, empática e profissional. Você não é vendedora chata, você é uma facilitadora. Use no máximo 2 ou 3 emojis. Use quebras de linha. Seja breve (máximo 3 parágrafos curtos).";
+            // MENSAGEM HUMANA, PERSUASIVA E MULTILÍNGUE
+            systemPrompt = `Você é a Isis, a Agente de IA da Souza Produções. 
+            DIRETRIZES DE OURO:
+            1. IDIOMA: Identifique o idioma do lead com base no nome e interesse. Responda SEMPRE no mesmo idioma que ele usou.
+            2. TOM DE VOZ: Humano, leve, elegante e consultivo.
+            3. ESTRUTURA: Máximo 3 parágrafos curtos. Use quebras de linha. No máximo 2 emojis.
+            4. OBJETIVO: Gerar curiosidade e agendar uma conversa. Não tente vender o sistema de cara.
+            5. IDENTIDADE: Apresente-se como "Isis, a inteligência da Souza Produções".`;
             
-            userPrompt = `Escreva uma mensagem de primeiro contato para o WhatsApp do cliente ${leadName}.
+            userPrompt = `Escreva uma mensagem de abordagem personalizada para o lead ${leadName}. 
+            O interesse dele é: "${leadInteresse}".
             
-            Contexto: Ele demonstrou interesse em "${leadInteresse}".
-            
-            Roteiro da Mensagem:
-            1. Saudação humana (Oi ${leadName}, tudo bem?).
-            2. Apresentação (Sou a Isis, a Agente de IA aqui da Souza Produções).
-            3. Contexto (Vi que você está buscando soluções para ${leadInteresse} e achei o projeto fantástico).
-            4. Proposta de valor (A nossa inteligência consegue filtrar seus leads e te entregar só as melhores oportunidades no automático).
-            5. Pergunta final leve (Topa conversarmos 2 minutinhos para eu te mostrar como funciona?).`;
+            Se o interesse estiver em Inglês, responda em Inglês. Se em Espanhol, responda em Espanhol.
+            Siga o roteiro:
+            - Saudação natural.
+            - Apresentação (Sou a Isis da Souza Produções).
+            - Demonstre que entendeu a dor dele com base no interesse.
+            - Convite amigável para uma breve validação estratégica.`;
         }
 
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -47,7 +58,7 @@ export default async function handler(req, res) {
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userPrompt }
                 ],
-                temperature: 0.8, // Mais criatividade para parecer humano
+                temperature: 0.6, // Equilíbrio perfeito entre criatividade e seriedade
                 response_format: action === 'analyze' ? { type: "json_object" } : undefined
             })
         });
@@ -59,6 +70,6 @@ export default async function handler(req, res) {
 
     } catch (err) {
         console.error(err);
-        return res.status(500).json({ error: "A Isis teve um pequeno soluço, tente novamente." });
+        return res.status(500).json({ error: "Isis is currently updating her protocols." });
     }
 }
