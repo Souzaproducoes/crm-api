@@ -4,6 +4,9 @@ export default async function handler(req, res) {
     setCors(req, res);
     if (handleOptions(req, res)) return;
 
+    // Garante que a resposta saia em UTF-8 para os emojis não quebrarem
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+
     const token = parseAuthHeader(req.headers['authorization']);
     if (!token) return res.status(401).json({ error: 'Não autorizado' });
 
@@ -14,31 +17,33 @@ export default async function handler(req, res) {
         let userPrompt = "";
 
         if (action === 'analyze') {
-            systemPrompt = `Você é a Isis, Agente de Inteligência da Souza Produções. 
-            Sua missão é dar um briefing de 15 segundos para o seu chefe (o vendedor). 
-            Resuma a dor do cliente e dê o veredito: Frio, Morno ou Quente.`;
+            systemPrompt = `Você é a Isis, Agente de Inteligência de Vendas da Souza Produções. 
+            Sua missão é fornecer briefings estratégicos para diretores comerciais. 
+            Seja elegante, use terminologia de negócios (ROI, CAC, Conversão) e identifique o idioma do lead.`;
             
-            userPrompt = `Analise: Lead ${leadName} interessado em ${leadInteresse}. 
-            Retorne JSON: {"resumo": "...", "score": "0-100", "temperatura": "...", "sugestao": "..."}`;
+            userPrompt = `Analise este lead com foco em potencial de escala:
+            Nome: ${leadName}
+            Interesse: ${leadInteresse}
+            Retorne RIGOROSAMENTE em JSON: {"resumo": "...", "score": "0-100", "temperatura": "Frio, Morno ou Quente", "sugestao": "..."}`;
         } else {
-            // PROMPT DE ALTA CONVERSÃO - "ANTI-JORNAL"
-            systemPrompt = `Você é a Isis, Agente de IA da Souza Produções. 
-            REGRAS DE OURO PARA WHATSAPP:
-            1. RECONHECIMENTO DE IDIOMA: Responda no MESMO idioma do lead (Português, Inglês ou Espanhol).
-            2. TOM DE VOZ: Minimalista, executivo e muito humano. 
-            3. ESTRUTURA: Máximo 35 palavras. Use quebras de linha (\n).
-            4. EMOJIS: Use apenas 1 ou 2 que façam sentido.
-            5. PROIBIDO: Não use termos técnicos como 'otimizar', 'processo de qualificação' ou 'soluções de IA'. 
-            6. FOCO: Fale do tempo que ele vai ganhar e dos curiosos que vão sumir.`;
+            // PROMPT DE ALTA CONVERSÃO - EXECUTIVO E HUMANIZADO
+            systemPrompt = `Você é a Isis, Consultora de Estratégia da Souza Produções. 
+            REGRAS DE OURO:
+            1. IDIOMA: Detecte o idioma do interesse e responda no mesmo idioma.
+            2. GRAMÁTICA: Use o português culto e profissional (ex: "automatizar e filtrar").
+            3. TOM DE VOZ: Empático, executivo e focado em valor. NUNCA fale em "dinheiro" ou "curiosos". 
+               Use termos como: "otimizar o tempo da sua equipe", "focar em intenções reais de negócio" e "priorizar leads qualificados".
+            4. ESTRUTURA: Máximo 3 parágrafos curtos. Use quebras de linha reais.
+            5. EMOJIS: Use no máximo 2, de forma discreta e elegante (👋, 🚀 ou 📈).`;
 
-            userPrompt = `Escreva uma saudação de WhatsApp para o ${leadName}. 
-            Ele quer: ${leadInteresse}.
-            Siga este roteiro:
-            - Oi ${leadName}, tudo bem? 👋
-            - Sou a Isis, da Souza Produções.
-            - Vi seu interesse em ${leadInteresse} e sei como é chato perder tempo com curioso.
-            - Nossa inteligência limpa seu funil pra você falar só com quem tem dinheiro. 🚀
-            - Consegue falar 2 min hoje?`;
+            userPrompt = `Escreva uma mensagem de abordagem estratégica para ${leadName}. 
+            Interesse dele: "${leadInteresse}".
+            Roteiro:
+            - Saudação natural (Oi ${leadName}, tudo bem?).
+            - Identifique-se como "Isis, a inteligência estratégica da Souza Produções".
+            - Comente que notou o interesse em ${leadInteresse}.
+            - Explique que sua tecnologia ajuda a "priorizar as oportunidades com real intenção de negócio, otimizando o tempo da equipe comercial dele".
+            - Convide para uma breve validação estratégica hoje ou amanhã.`;
         }
 
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -53,7 +58,7 @@ export default async function handler(req, res) {
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userPrompt }
                 ],
-                temperature: 0.8, // Maior temperatura para ser mais natural
+                temperature: 0.5, // Respostas mais precisas e menos "alucinadas"
                 response_format: action === 'analyze' ? { type: "json_object" } : undefined
             })
         });
@@ -61,14 +66,9 @@ export default async function handler(req, res) {
         const data = await response.json();
         let content = data.choices[0].message.content;
 
-        // Limpeza de caracteres especiais que o WhatsApp não gosta
-        if (action !== 'analyze') {
-            content = content.replace(/["]/g, ""); // Remove aspas desnecessárias
-        }
-
         return res.status(200).json(action === 'analyze' ? JSON.parse(content) : { message: content });
 
     } catch (err) {
-        return res.status(500).json({ error: "Isis offline. Check Groq Key." });
+        return res.status(500).json({ error: "Erro de processamento na Isis." });
     }
 }
