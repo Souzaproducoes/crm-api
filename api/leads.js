@@ -1,198 +1,55 @@
-// api/leads.js — Gerenciamento completo de leads (VERSÃO CORRIGIDA)
 import { getPool, setCors, handleOptions, parseAuthHeader } from './lib/helpers.js';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto'; // Para gerar a digital
 
 export default async function handler(req, res) {
-  setCors(req, res);
-  if (handleOptions(req, res)) return;
+    setCors(req, res);
+    if (handleOptions(req, res)) return;
 
-  try {
-    const pool = getPool();
-    
-    const token = parseAuthHeader(req.headers['authorization']);
-    if (!token) {
-      return res.status(401).json({ error: 'Token não fornecido' });
-    }
-
-    let decoded;
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (err) {
-      return res.status(401).json({ error: 'Token inválido ou expirado' });
-    }
+        const pool = getPool();
+        const token = parseAuthHeader(req.headers['authorization']);
+        if (!token) return res.status(401).json({ error: 'Não autorizado' });
 
-    const companyId = decoded.company_id;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const companyId = decoded.company_id;
 
-    // GET - Listar leads
-    if (req.method === 'GET') {
-      const result = await pool.query(
-        `SELECT id, company_id, name, phone, whatsapp, email, status, interesse, 
-                source, priority, company_name, job_title, industry, city, state,
-                created_at, updated_at
-         FROM leads 
-         WHERE company_id = $1 
-         ORDER BY created_at DESC`,
-        [companyId]
-      );
-      return res.status(200).json({ 
-        success: true, 
-        leads: result.rows, 
-        total: result.rows.length 
-      });
-    }
-
-    // POST - Criar ou atualizar lead
-    if (req.method === 'POST') {
-      const { phone, whatsapp, name, email, status, interesse, source, 
-              company_name, job_title, industry, city, state, priority } = req.body || {};
-
-      const phoneNumber = phone || whatsapp;
-      
-      if (!phoneNumber) {
-        return res.status(400).json({ 
-          success: false,
-          error: 'phone ou whatsapp é obrigatório' 
-        });
-      }
-
-      const leadName = name || `Lead ${phoneNumber.slice(-4)}`;
-
-      const result = await pool.query(
-        `INSERT INTO leads (company_id, phone, whatsapp, name, email, status, 
-                          interesse, source, company_name, job_title, industry, 
-                          city, state, priority)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-         ON CONFLICT (company_id, phone) 
-         DO UPDATE SET 
-           name = EXCLUDED.name,
-           whatsapp = EXCLUDED.whatsapp,
-           email = EXCLUDED.email,
-           status = EXCLUDED.status, 
-           interesse = EXCLUDED.interesse,
-           source = EXCLUDED.source,
-           company_name = EXCLUDED.company_name,
-           job_title = EXCLUDED.job_title,
-           industry = EXCLUDED.industry,
-           city = EXCLUDED.city,
-           state = EXCLUDED.state,
-           priority = EXCLUDED.priority,
-           updated_at = NOW()
-         RETURNING *`,
-        [
-          companyId, 
-          phoneNumber, 
-          whatsapp || phoneNumber, 
-          leadName, 
-          email || null,
-          status || 'novo', 
-          interesse || null, 
-          source || 'whatsapp',
-          company_name || null,
-          job_title || null,
-          industry || null,
-          city || null,
-          state || null,
-          priority || 'medium'
-        ]
-      );
-
-      return res.status(201).json({
-        success: true,
-        lead: result.rows[0]
-      });
-    }
-
-    // PATCH - Atualizar lead (CORRIGIDO PARA ACEITAR ID)
-    if (req.method === 'PATCH') {
-      const { id, phone, whatsapp, ...fields } = req.body || {};
-      
-      // Verifica se temos um ID ou um Telefone para localizar o lead
-      if (!id && !phone && !whatsapp) {
-        return res.status(400).json({ error: 'ID ou Telefone é obrigatório para atualização' });
-      }
-
-      const updates = [];
-      const values = [];
-      let paramCount = 1;
-
-      const allowedFields = [
-        'name', 'email', 'status', 'interesse', 'source', 'priority',
-        'company_name', 'job_title', 'industry', 'city', 'state', 'whatsapp'
-      ];
-
-      for (const [key, value] of Object.entries(fields)) {
-        if (allowedFields.includes(key) && value !== undefined) {
-          updates.push(`${key} = $${paramCount++}`);
-          values.push(value);
+        if (req.method === 'GET') {
+            const result = await pool.query(
+                `SELECT * FROM leads WHERE company_id = $1 ORDER BY created_at DESC`,
+                [companyId]
+            );
+            return res.status(200).json({ success: true, leads: result.rows });
         }
-      }
 
-      if (updates.length === 0) {
-        return res.status(400).json({ error: 'Nenhum campo válido para atualizar' });
-      }
+        if (req.method === 'POST') {
+            const { name, phone, email, interesse } = req.body;
 
-      // Adiciona o CompanyID
-      values.push(companyId);
-      const companyIdParam = paramCount++;
+            // GERADOR DE DIGITAL DA EMPRESA (Assinatura Única)
+            // Criamos um código baseado nos dados da empresa proprietária
+            const rawSignature = `${decoded.name}-${decoded.company_id}-SOUZA-PRODUCOES`;
+            const signatureKey = crypto.createHash('md5').update(rawSignature).digest('hex').toUpperCase().substring(0, 12);
 
-      // Adiciona o identificador (ID ou Phone)
-      const identifier = id || phone || whatsapp;
-      values.push(identifier);
-      const identifierParam = paramCount;
+            const result = await pool.query(
+                `INSERT INTO leads (company_id, name, phone, email, status, interesse, signature_key, source)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+                [companyId, name, phone, email || null, 'novo', interesse || null, signatureKey, 'api']
+            );
 
-      // Define se vamos buscar por ID (número) ou por Phone (string)
-      const columnToMatch = id ? 'id' : 'phone';
+            return res.status(201).json({ success: true, lead: result.rows[0] });
+        }
 
-      const result = await pool.query(
-        `UPDATE leads 
-         SET ${updates.join(', ')}, updated_at = NOW()
-         WHERE company_id = $${companyIdParam} AND ${columnToMatch} = $${identifierParam}
-         RETURNING *`,
-        values
-      );
+        if (req.method === 'PATCH') {
+            const { id, status, name, interesse } = req.body;
+            await pool.query(
+                `UPDATE leads SET status = COALESCE($1, status), name = COALESCE($2, name), interesse = COALESCE($3, interesse), updated_at = NOW() 
+                 WHERE id = $4 AND company_id = $5`,
+                [status, name, interesse, id, companyId]
+            );
+            return res.status(200).json({ success: true });
+        }
 
-      if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'Lead não encontrado nesta empresa' });
-      }
-
-      return res.status(200).json({
-        success: true,
-        lead: result.rows[0]
-      });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
     }
-
-    // DELETE - Remover lead (CORRIGIDO PARA ACEITAR ID)
-    if (req.method === 'DELETE') {
-      const { id, phone, whatsapp } = req.body || {};
-      const identifier = id || phone || whatsapp;
-      
-      if (!identifier) {
-        return res.status(400).json({ error: 'ID ou Telefone é obrigatório' });
-      }
-
-      const columnToMatch = id ? 'id' : 'phone';
-
-      const result = await pool.query(
-        `DELETE FROM leads 
-         WHERE company_id = $1 AND ${columnToMatch} = $2
-         RETURNING *`,
-        [companyId, identifier]
-      );
-
-      if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'Lead não encontrado' });
-      }
-
-      return res.status(200).json({
-        success: true,
-        message: 'Lead removido com sucesso'
-      });
-    }
-
-    return res.status(405).json({ error: 'Método não permitido' });
-
-  } catch (err) {
-    console.error('[leads] Erro:', err.message);
-    return res.status(500).json({ error: 'Erro interno do servidor', details: err.message });
-  }
 }
